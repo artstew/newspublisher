@@ -2,6 +2,11 @@
 
 /**
  * NewsPublisher
+ 
+ Artstew Edit 9/23/2016
+ Changes are currently specific to TVs that my application is using.
+ Goal: make it changes work in a varity of cases.
+ 
  *
  * Copyright 2011-2015 Bob Ray
  *
@@ -203,7 +208,7 @@ class Newspublisher {
     protected $showNotify;
     /** @var  $notifyChecked bool - If true, Notify checkbox is checked by default */
     protected $notifyChecked;
-    /** @var   $duplicateButton bool - If true, show duplicate button */
+	/** @var   $duplicateButton bool - If true, show duplicate button */
     protected $duplicateButton = false;
 
     /** @var   $deleteButton bool - If true, show delete button */
@@ -211,7 +216,6 @@ class Newspublisher {
 
     /** $var $confirmDelete bool - if true, show 'are you sure' dialog */
     protected $confirmDelete = true;
-
 
     /** NewsPublisher constructor
      *
@@ -276,14 +280,12 @@ class Newspublisher {
                 $this->modx->lexicon->load($language . ':newspublisher:default');
                 break;
         }
-        $this->duplicateButton =
+		$this->duplicateButton =
             $this->modx->getOption('duplicatebutton', $this->props, false);
         $this->deleteButton =
             $this->modx->getOption('deletebutton', $this->props, false);
-
         $this->confirmDelete =
             $this->modx->getOption('confirmdelete', $this->props, true);
-
         /* set tab properties */
         $this->useTabs = isset($this->props['usetabs'])
             ? ! empty($this->props['usetabs'])
@@ -364,10 +366,9 @@ class Newspublisher {
 
         if($this->existing) {
 
-
             $this->resource = $this->modx->getObject('modResource', $this->existing);
             if ($this->resource) {
-                if (isset($_POST['Duplicate'])) {
+            	if (isset($_POST['Duplicate'])) {
                     if (! $this->resource->checkPolicy('copy')) {
                         $this->setError(
                             $this->modx->lexicon('np_copy_permission_denied'));
@@ -391,7 +392,7 @@ class Newspublisher {
                     $this->setError($result);
                     return;
                 }
-
+                
                 if (! ($this->modx->hasPermission('view_document') &&
                     $this->resource->checkPolicy('view')) ) {
                     if (!$this->modx->hasPermission('view_document')) {
@@ -849,8 +850,6 @@ class Newspublisher {
             </script>');*/
         }
 
-
-
         //die ('<pre>' . print_r($formTpl,true));
         /*echo '$_POST<br /><pre>'  . print_r($this->resource->toArray(), true) . '</pre>';*/
         return $formTpl;
@@ -1210,7 +1209,16 @@ class Newspublisher {
                 return null;
                 
             } else {
-                $this->modx->toPlaceholder($name, $ph, $this->prefix );
+                if (!$this->existing) {
+					$presetValue = $this->props[$name . '_value'];
+					if ($presetValue) {
+						$this->modx->toPlaceholder($name, $presetValue, $this->prefix );
+					} else {
+						$this->modx->toPlaceholder($name, $ph, $this->prefix );
+					}
+				} else {
+					$this->modx->toPlaceholder($name, $ph, $this->prefix );
+				}
             }
         }
 
@@ -1226,7 +1234,8 @@ class Newspublisher {
                 $formTpl .= $this->_displayDateInput($name,
                     $tv->getValue($this->existing), $params);
                 break;
-
+                
+            default:
             case 'text':
             case 'textbox':
             case 'email';
@@ -1394,14 +1403,9 @@ class Newspublisher {
                     $params, $openTo);
                 break;
             default:
-                /* use custom TV file if it exists */
-                $tvFile = dirname(dirname(dirname(__FILE__))) . '/tvs/' . $tvType . '.php';
-                 if (file_exists($tvFile)) {
-                    include($tvFile);
-                } else {
-                     /* Use text type by default */
-                     $formTpl .= $this->_displaySimple($name,
-                         'TextTpl', $this->textMaxlength);
+                $tvFile = dirname(dirname(dirname(__FILE__))).'/tvs/'.$tvType.'.php';
+                if (file_exists($tvFile)){
+                    include ($tvFile);
                 }
                 break;
 
@@ -1516,8 +1520,18 @@ class Newspublisher {
      * @return string - field/TV HTML code */
 
     protected function _displaySimple($name, $tplName, $maxLength = 10) {
-        $PHs = array('[[+npx.maxlength]]' => $maxLength);
-        return $this->strReplaceAssoc($PHs, $this->getTpl($tplName));
+		if (!$this->existing) {
+			$presetValue = $this->modx->getOption($name . '_value', $this->props, false, true);
+			if ($presetValue) {
+				$this->modx->toPlaceholder($name, $presetValue, $this->prefix );
+			} else {
+				$this->modx->toPlaceholder($name, $ph, $this->prefix );
+			}
+		} else {
+			$this->modx->toPlaceholder($name, $ph, $this->prefix );
+		}
+		$PHs = array('[[+npx.maxlength]]' => $maxLength);
+		return $this->strReplaceAssoc($PHs, $this->getTpl($tplName));
     }
 
 
@@ -1758,12 +1772,51 @@ class Newspublisher {
                 $this->resource->_fieldMeta[$field]['phptype'] == 'timestamp') {
                     $postTime = isset($_POST[$field . '_time'])? $_POST[$field . '_time'] : '';
                 $_POST[$field] = $val . ' ' . $postTime;
-                if (empty($_POST[$field]) || $_POST[$field] == ' ') {
-                    $_POST[$field] = 0;
-                }
             }
         }
         $fields = array_merge($oldFields, $_POST);
+        
+		$property_name = $fields['property_name'];
+		$property_address_street = $fields['property_address_street'];
+		$property_address_city = $fields['property_address_city'];
+		$property_address_state = $fields['property_address_state'];
+		$property_address_zip = $fields['property_address_zip'];
+		$form_date_time = $fields['form_date_time'];
+		//$form_date_time = date_format($form_date_time, 'Y-m-d');
+		
+		$current_date = date("Y-m-d");
+		
+		$newPageTitle = "";
+		
+		if ($property_name) {
+			$newPageTitle = $property_name . "_";
+		}
+		
+		$newPageTitle .= $property_address_street;
+		
+		if ($property_address_city) {
+			$newPageTitle .= "_" . $property_address_city;
+		}
+		if ($property_address_state) {
+			$newPageTitle .= "_" . $property_address_state;
+		}
+		if ($property_address_zip) {
+			$newPageTitle .= "_" . $property_address_zip;
+		}
+		
+		if ($form_date_time) {
+			$newPageTitle .= "_ET_" . $form_date_time;
+		}
+		
+		$newPageTitle .= "_AT_" . $current_date;
+		
+		$newPageTitle = str_replace(' ', '_', $newPageTitle);
+		$newPageTitle = str_replace('(', '', $newPageTitle);
+		$newPageTitle = str_replace(')', '', $newPageTitle);
+		$newPageTitle = str_replace('.', '', $newPageTitle);
+		
+		$fields['pagetitle'] = $newPageTitle;
+		
         if (!$this->existing) { /* new document */
 
             /* ToDo: Move this to init()? */
@@ -1871,15 +1924,11 @@ class Newspublisher {
                 $name = $tv->get('name');
 
                 if ($tv->get('type') == 'date') {
-                    $tvCode = 'tv' . $tv->get('id');
                     if (empty($_POST[$name])) {
-                        $fields[$tvCode] = '';
+                        $fields['tv' . $tv->get('id')] = '';
                     } else {
-                        $fields[$tvCode] = $_POST[$name] . ' ' .
+                        $fields['tv' . $tv->get('id')] = $_POST[$name] . ' ' .
                             $_POST[$name . '_time'];
-                    }
-                    if ($fields[$tvCode] == ' ' || empty($fields[$tvCode])) {
-                        $fields[$tvCode] = 0;
                     }
                 } else {
                     if (is_array($_POST[$name])) {
@@ -2280,7 +2329,7 @@ public function getParents() {
         $parents = explode(',', $temp);
         foreach($parents as $parent) {
             if (is_numeric($parent)) {
-                if ($parent == $this->resource->get('id')) {
+            	if ($parent == $this->resource->get('id')) {
                     /* Doc can't be its own parent */
                     continue;
                 }
