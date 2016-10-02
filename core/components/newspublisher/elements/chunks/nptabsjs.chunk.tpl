@@ -56,16 +56,21 @@ $(document).ready(function(){
     var hasFilterSelected = false;
 
     $.each(buttonsJson, function(buttonName, aFields) {
+       var buttonNameText = buttonName;
+       buttonName = buttonName.replace(/ /g,"_");
+       buttonName = buttonName.replace("(","_");
+       buttonName = buttonName.replace(")","_");
+       buttonName = buttonName.replace(".","_");
        var buttonClass = buttonPrefixClass + buttonName; /* criterion for filtering items */
        var aClass = '';
        if (activeButton==buttonName.toLowerCase()){ /* if button label matches to activeButton property */
          aClass = filterSelected;
          hasFilterSelected = true;
        }
-       htmlButtons += '<li id="np-buttons"><a class="' +  aClass  + '" data-filter=".' + buttonClass + '" href="#">' + buttonName + '</a></li>';
+       htmlButtons += '<li id="np-buttons"><a class="' +  aClass  + '" data-filter=".' + buttonClass + '" href="#">' + buttonNameText + '</a></li>';
        $.each(aFields, function(index, fieldName) {
         /* find that element by name (name can be fieldName or fieldName[]) */
-        var field = $('[name^="' + fieldName + '"]:last');
+        var field = $('[name^="' + fieldName + '"]');
         if (field.length > 0){
           /* OK, got it */
           var parent = field;
@@ -81,7 +86,6 @@ $(document).ready(function(){
           /* warn user */
           alert('[[%np_could_not_find_tab_field]]' + fieldName);
         }
-
        });
     });
 
@@ -99,6 +103,19 @@ $(document).ready(function(){
 
     /* insert filter buttons after insertAfterElement element */
     $(htmlButtons).insertAfter(insertAfterElement);
+    
+/* Add tab titles above first form item in tab */
+    
+$.each(buttonsJson, function(buttonName, aFields) {
+    var buttonNameText = buttonName;
+    buttonName = buttonName.replace(/ /g,"_");
+    buttonName = buttonName.replace("(","_");
+    buttonName = buttonName.replace(")","_");
+    buttonName = buttonName.replace(".","_");
+    var buttonClass = buttonPrefixClass + buttonName;
+    
+    $("." + buttonClass + ":first").before( "<h3 class='" + filterItemClass + " " + buttonClass + "'>" + buttonNameText + "</h3>" );
+});
 
     /* ****************************
     /* apply filter
@@ -145,6 +162,7 @@ $(document).ready(function(){
   } else {
       alert('[[%np_invalid_tabs]]');
   }
+
 
 
 });

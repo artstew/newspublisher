@@ -1255,9 +1255,7 @@ class Newspublisher {
 
             case 'richtext':
                 $formTpl .= $this->_displayTextarea($name, true, 'textarea');
-
                 break;
-
 
             case 'radio':
             case 'checkbox':
@@ -1408,6 +1406,12 @@ class Newspublisher {
                     include ($tvFile);
                 }
                 break;
+            
+            /* Added by Artstew for MIGX TVs */
+            case 'migx':
+                $formTpl .= $this->_displayMigx($name,
+                    'MigxOuterTpl');
+                break;
 
         }  /* end switch */
         
@@ -1520,6 +1524,28 @@ class Newspublisher {
      * @return string - field/TV HTML code */
 
     protected function _displaySimple($name, $tplName, $maxLength = 10) {
+		if (!$this->existing) {
+			$presetValue = $this->modx->getOption($name . '_value', $this->props, false, true);
+			if ($presetValue) {
+				$this->modx->toPlaceholder($name, $presetValue, $this->prefix );
+			} else {
+				$this->modx->toPlaceholder($name, $ph, $this->prefix );
+			}
+		} else {
+			$this->modx->toPlaceholder($name, $ph, $this->prefix );
+		}
+		$PHs = array('[[+npx.maxlength]]' => $maxLength);
+		return $this->strReplaceAssoc($PHs, $this->getTpl($tplName));
+    }
+    
+    /** Produces the HTML code for MIGx TVs
+     * 
+     * @access protected
+     * @param $name string - name of the field/TV
+     * @param $tplName string - name of the template chunk that should be used
+     * @return string - field/TV HTML code */
+
+    protected function _displayMigx($name, $tplName) {
 		if (!$this->existing) {
 			$presetValue = $this->modx->getOption($name . '_value', $this->props, false, true);
 			if ($presetValue) {
@@ -1930,6 +1956,9 @@ class Newspublisher {
                         $fields['tv' . $tv->get('id')] = $_POST[$name] . ' ' .
                             $_POST[$name . '_time'];
                     }
+                /* Add by Artstew for MIGX TVs */
+                } elseif ($tv->get('type') == 'migx') {
+                    $fields['tv' . $tv->get('id')] = $_POST[$name] . ' ' . $_POST[$name . '_migx'];
                 } else {
                     if (is_array($_POST[$name])) {
                         /* get rid of phantom checkbox */
