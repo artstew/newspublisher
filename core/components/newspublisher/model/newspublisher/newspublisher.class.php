@@ -49,6 +49,9 @@
    $modx->lexicon->load('newspublisher:default');
 */
 
+/* For Artstew Migx Add Script for "Add Row" button */
+$migxHasRun = false;
+
 class Newspublisher {
 
    /** @var $version string current version */
@@ -1409,8 +1412,44 @@ class Newspublisher {
             
             /* Added by Artstew for MIGX TVs */
             case 'migx':
-                $formTpl .= $this->_displayMigx($name,
-                    'MigxOuterTpl');
+                global $modx;
+                $output = '';
+                $migxField_fields = array();
+                $migxField_fields = explode(',',$this->props['migx_' . $name]);
+                    
+                /* The formtabs field has to be set in the TV config-edit screen (copy/paste from MIGX CMP) */
+                $migx_properties = $tv->get('input_properties');
+                $migxformtabs = $migx_properties['formtabs'];
+                $migxformtabs_array = json_decode($migxformtabs,true);
+                    
+                $migxform_caption = $migxformtabs_array[0]['caption'];
+                $migxformtabs_fields = $migxformtabs_array[0]['fields'];
+                
+                $migx_field_tpl = $this->props['tpl_'.$name];
+                                
+                if ($migx_field_tpl === null) {
+                    $migx_field_tpl = 'migxInput';
+                }
+                
+                if($this->existing) {
+                    $migx_docId = $this->existing;
+                } else {
+                    $migx_docId = '';
+                }
+                    
+                $migx_getImageList_array = array('docid' => $migx_docId,'tvname' => $name,'tpl' => $migx_field_tpl,'processTVs' => 1);
+                foreach($migxformtabs_fields as $migxform_field) {
+                    $migx_getImageList_array[$migxform_field['field'] . "_caption"] = $migxform_field['caption'];
+                }
+                
+                /*foreach ( $migx_getImageList_array as $key=>$value ) {
+                    $output .=  "\n" . $key . ' - ' . $value;
+                }*/
+                
+                $migx_output = $modx->runSnippet('getImageList', $migx_getImageList_array);                    
+                $output .= $migx_output;
+                
+                $formTpl .= $this->_displayMigx($name,'MigxOuterTpl',$output);
                 break;
 
         }  /* end switch */
@@ -1545,7 +1584,7 @@ class Newspublisher {
      * @param $tplName string - name of the template chunk that should be used
      * @return string - field/TV HTML code */
 
-    protected function _displayMigx($name, $tplName) {
+    protected function _displayMigx($name, $tplName, $migxOutput) {
 		if (!$this->existing) {
 			$presetValue = $this->modx->getOption($name . '_value', $this->props, false, true);
 			if ($presetValue) {
@@ -1556,7 +1595,15 @@ class Newspublisher {
 		} else {
 			$this->modx->toPlaceholder($name, $ph, $this->prefix );
 		}
-		$PHs = array('[[+npx.maxlength]]' => $maxLength);
+        /* Add Javascript if MIGX exist (just once) */
+        if(!$migxHasRun) {
+            global $modx;
+            $migx_field_script_tpl = $this->props['tpl_'.$name.'_script'];
+            $migxScriptOutput = $modx->getChunk($migx_field_script_tpl,array());
+            $migxHasRun = true;
+        }
+        
+		$PHs = array('[[+npx.migxOutput]]' => $migxOutput,'[[+npx.migxScriptOutput]]' => $migxScriptOutput);
 		return $this->strReplaceAssoc($PHs, $this->getTpl($tplName));
     }
 
@@ -1802,6 +1849,7 @@ class Newspublisher {
         }
         $fields = array_merge($oldFields, $_POST);
         
+        /* Added by Artstew (specific for Artstew application) - needs changed */
 		$property_name = $fields['property_name'];
 		$property_address_street = $fields['property_address_street'];
 		$property_address_city = $fields['property_address_city'];
@@ -1956,9 +2004,32 @@ class Newspublisher {
                         $fields['tv' . $tv->get('id')] = $_POST[$name] . ' ' .
                             $_POST[$name . '_time'];
                     }
-                /* Add by Artstew for MIGX TVs */
+                /* Added by Artstew for MIGX TVs */
                 } elseif ($tv->get('type') == 'migx') {
-                    $fields['tv' . $tv->get('id')] = $_POST[$name] . ' ' . $_POST[$name . '_migx'];
+                    global $modx;
+                    /*$modx->log(modX::LOG_LEVEL_ERROR, 'This is a MIGX');*/
+                    
+                    $migx_properties = $tv->get('input_properties');
+                    $migxformtabs = $migx_properties['formtabs'];
+                    $migxformtabs_array = json_decode($migxformtabs,true);
+                    $migxformtabs_fields = $migxformtabs_array[0]['fields'];
+                    
+                    $migx_form_items = $_REQUEST['MIGX_id'];
+                    $migx_array = array();
+                        foreach ($migx_form_items as $item) {
+                            $migx_item = array(
+                                'MIGX_id' => $item
+                            );
+                            foreach($migxformtabs_fields as $migxform_field) {
+                                $fieldName = $migxform_field['field'];
+                                $fieldData = $_REQUEST[$fieldName . '_' . $item];
+                                $migx_item[$fieldName] = $fieldData;
+                                $modx->log(modX::LOG_LEVEL_ERROR, $fieldName . ' - ' . $fieldData);
+                            }
+                            $migx_array[] = $migx_item;
+                        }
+                    $migx_array_json = json_encode($migx_array);
+                    $fields['tv' . $tv->get('id')] = $migx_array_json;
                 } else {
                     if (is_array($_POST[$name])) {
                         /* get rid of phantom checkbox */
